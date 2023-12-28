@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS SAM Template for Lambda function with a container image
+Parameters:
+  FunctionName:
+    Type: String
+    Description: "Name of the lambda function"
+  ImageUri:
+    Type: String
+    Description: "Image Uri location"
+
+Resources:
+  MyLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      PackageType: Image
+      ImageUri: !Ref ImageUri
+      ImageConfig:
+        Command: ["lambda_function.handler"]
+      Timeout: 300
+      MemorySize: 128
+
+Outputs:
+  MyLambdaFunctionArn:
+    Description: The ARN of the Lambda function
+    Value: !Ref MyLambdaFunction
+
+

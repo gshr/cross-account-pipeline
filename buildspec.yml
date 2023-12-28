@@ -1,0 +1,38 @@
+version: 0.2
+ 
+env:
+  variables:
+    AWS_DEFAULT_REGION: "ap-south-1"
+    ECR_REPO_URL: "603635532759.dkr.ecr.ap-south-1.amazonaws.com/my-ecr-repo"
+    IMAGE_NAME: "my-ecr-repo"
+    LAMBDA_FUNCTION_NAME: "my-function"
+    STACK_NAME1: "build-ecr"
+    STACK_NAME2: "build-lambda"
+    REPO_NAME: "my-ecr-repo"
+    ACCOUNT: "603635532759"
+    BUCKET_NAME: "aws-orders"
+    
+
+phases:
+  pre_build:
+    commands:
+      - sam build --template ecr.yaml
+      - sam deploy --template ecr.yaml --stack-name $STACK_NAME1 --s3-bucket $BUCKET_NAME --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --parameter-overrides RepositoryName=my-ecr-repo
+
+  build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPO_URL
+      - echo Building Docker image...
+      - docker build -t $REPO_NAME .
+      - docker tag $REPO_NAME:latest $ACCOUNT.dkr.ecr.ap-south-1.amazonaws.com/$REPO_NAME:latest
+      - echo Pushing Docker image to Amazon ECR...
+      - docker push $ACCOUNT.dkr.ecr.ap-south-1.amazonaws.com/$REPO_NAME:latest
+
+  post_build:
+    commands:
+      - sam build --template template.yaml
+      - sam deploy --template template.yaml --stack-name $STACK_NAME2 --s3-bucket $BUCKET_NAME --image-repository $ECR_REPO_URL:latest  --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --parameter-overrides FunctionName=LAMBDA_FUNCTION_NAME ImageUri=$ECR_REPO_URL:latest
+      - echo Updating Lambda function...
+      - aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --image-uri $ACCOUNT.dkr.ecr.ap-south-1.amazonaws.com/$REPO_NAME:latest
+      
